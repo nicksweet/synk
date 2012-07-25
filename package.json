@@ -1,7 +1,7 @@
 {
 	"name": "synk",
-	"version": "0.0.01",
-	"description": "schronize a remote directory with a local one, then run a series of commands on the server",
+	"version": "0.0.02",
+	"description": "schronize a remote directory with a local one, then run a series of preset commands on the server",
 	"author": {
 		"name": "Nick Sweet",
 		"email": "nick@igloo.io"

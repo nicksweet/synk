@@ -1,25 +1,28 @@
 fs = require 'fs'
 {exec} = require('child_process')
-{spawn} = require 'child_process'
-config = require '../config.json'
 path = require 'path'
+try
+	config = require "#{process.cwd()}/synk.json"
+catch err
+	config = false
 
 
 class Synk
 	constructor: (options) ->
 		@options = options
 		process.stdin.setEncoding('utf8')
-		if not @options.config_file[@options.appname] or @options.new
+		if not @options.config_file
 			process.stdin.resume()
-			console.log "\n\n\n\nAdd configuration for #{@options.appname}? \ntype 'yes' or 'no'"
+			console.log "\n\n\n\nThere is no synk.json file for the project in #{process.cwd()}\n\nCreate one now?\ntype 'yes' or 'no'"
 			process.stdin.once 'data', (input) =>
 				if input is 'yes\n'
 					@appname = @options.appname
-					@settings = {post_upload_command_sequence: []}
+					@settings =
+						src: process.cwd()
+						post_upload_command_sequence: []
 					@prompts = [
 						{prompt: '\nenter path to .pem file:\n', value: 'pem', resolve: true},
-						{prompt: '\nenter source dir:\n', value: 'src', resolve: true},
-						{prompt: '\nenter remote dir:\n', value: 'remote_dir'},
+						{prompt: '\nenter remote dir to synk files to:\n', value: 'remote_dir'},
 						{prompt: '\nenter username:\n', value: 'username'},
 						{prompt: '\nenter hostname:\n', value: 'hostname'},
 					]
@@ -32,10 +35,15 @@ class Synk
 			console.log "\n\nYou sure you want to remove the settings for the app #{@options.appname}?\n\ntype 'yes' or 'no'\n\n"
 			process.stdin.once 'data', (input) =>
 				if input is 'yes\n'
-					delete @options.config_file[@options.appname]
-					config_str = JSON.stringify @options.config_file, null, 4
-					fs.writeFile './config.json', config_str
-					process.stdin.pause()
+					# delete @options.config_file[@options.appname]
+					# config_str = JSON.stringify @options.config_file, null, 4
+					# fs.writeFile './synk.json', config_str
+					fs.unlink "#{process.cwd()}/synk.json", (err) ->
+						if err
+							console.log err
+						else
+							console.log 'done'
+						process.exit()
 				else
 					process.exit()
 		else
@@ -74,12 +82,13 @@ class Synk
 					else 
 						process.stdin.pause()
 						@options.config_file[@appname] = @settings
-						config_str = JSON.stringify @options.config_file, null, 4
-						fs.writeFile './config.json', config_str
+						#config_str = JSON.stringify @options.config_file, null, 4
+						config_str = JSON.stringify @settings, null, 4
+						fs.writeFile './synk.json', config_str
 
 	push: ->
-		app = @options.config_file[@options.appname]
-		command = """rsync -zvr -e "ssh -i #{app.pem}" #{app.src} #{app.username}@#{app.hostname}:#{app.remote_dir}"""
+		app = @options.config_file
+		command = """rsync -zvr --delete -e "ssh -i #{app.pem}" #{app.src} #{app.username}@#{app.hostname}:#{app.remote_dir}"""
 		scp = exec command, {stdio: 'ignore'}, (err, stdout, stderr) =>
 			if err
 				console.log err
@@ -91,52 +100,44 @@ class Synk
 		scp.stdout.pipe(process.stdout)
 
 	open_ssh: ->
-		app = @options.config_file[@options.appname]
-		console.log 'file upload compleate\n'
-		console.log 'now attempting to run the following commands:\n'
-		for command in app.post_upload_command_sequence
-			console.log command + '\n'
-		ssh = exec "ssh -t -t -i #{app.pem} #{app.username}@#{app.hostname}", (err, stdout, stderr) ->
-			if err
-				console.log err
-				process.exit(1)
-			else
-				console.log 'done'
+		app = @options.config_file
+		if app.post_upload_command_sequence.length
+			console.log '\n\n############################ FILES SYNK-ED ######################\n\n'
+			console.log 'now attempting to run the following commands:\n'
+			for command in app.post_upload_command_sequence
+				console.log command + '\n'
+			ssh = exec "ssh -t -t -i #{app.pem} #{app.username}@#{app.hostname}", (err, stdout, stderr) ->
+				if err
+					console.log err
+					process.exit(1)
+				else
+					console.log '\n\n###################### COMMAND SEQUENCE COMPLEATED ##################\n\ndone'
 
-		for command, index in app.post_upload_command_sequence
-			ssh.stdin.write "#{command}\n"
+			ssh.stdout.pipe(process.stdout)
+
+			for command, index in app.post_upload_command_sequence
+				ssh.stdin.write "#{command}\n"
+
 
 options =
-	appname: process.argv[2]
 	config_file: config
 
 for arg, index in process.argv
-	#console.log arg
 	switch arg
-		when '-n', '--new' then options.new = true
 		when '-rm', '--remove' then options.remove_app = true
 		when '-h', '--help' then options.show_help = true
-		when '-cp', '--show-config-path' then options.show_config_path = true
 		when '-c', '--config' then options.show_config = true
-		when '-a', '--apps' then options.show_apps = true
 
-if options.show_config_path
-	console.log path.resolve('./conig.json')
-else if options.show_config
+if options.show_config
 	console.log JSON.stringify config, null, 4
-else if options.show_apps
-	for appname, conf of config
-		console.log appname
 else if options.show_help
 	console.log """
 	\n\n
-	Usage: synk [appname] [OPTIONS]
+	Usage: synk [OPTIONS]
 
 	Options:
-		--new, -n                Create configuration for [appname]
-		--remove, -rm            Remove the setings for [appname]
-		--show-config-path, -cp  Show abs path to push config file for editing app settings manually
-		--apps, -a               Show a list of apps that have been configured
+		--remove, -rm            Remove the synk.json config file
+		--config, -c             Show synk.json config file
 		--help, -h               Show this message
 	\n\n
 	"""
