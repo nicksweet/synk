@@ -1,0 +1,15 @@
+{
+    "exampleapp": {
+        "post_upload_command_sequence": [
+            "cd /path/of/remote/dir",
+            "sudo fuser 80/tcp -k",
+            "node server.js &",
+            "exit"
+        ],
+        "pem": "/path/to/ssh_key.pem",
+        "src": "/path/to/local/src/dir",
+        "remote_dir": "/path/of/remote/dir/to/sync",
+        "username": "someuser",
+        "hostname": "example.com"
+    }
+}
