@@ -1,0 +1,17 @@
+{
+	"name": "pushr",
+	"version": "0.0.01",
+	"description": "Sync files between local and remote dirs, then run a series of commands on the server.",
+	"author": {
+		"name": "Nick Sweet",
+		"email": "nick@igloo.io"
+	},
+	"repository": {
+	    "type": "git",
+	    "url": "https://github.com/nicksweet/push.git"
+  	},
+	"main": "push.coffee",
+	"bin": {
+		"pushr": "bin/pushr"
+	}
+}

@@ -1,0 +1,144 @@
+fs = require 'fs'
+{exec} = require('child_process')
+{spawn} = require 'child_process'
+config = require '../config.json'
+path = require 'path'
+
+
+class Synk
+	constructor: (options) ->
+		@options = options
+		process.stdin.setEncoding('utf8')
+		if not @options.config_file[@options.appname] or @options.new
+			process.stdin.resume()
+			console.log "\n\n\n\nAdd configuration for #{@options.appname}? \ntype 'yes' or 'no'"
+			process.stdin.once 'data', (input) =>
+				if input is 'yes\n'
+					@appname = @options.appname
+					@settings = {post_upload_command_sequence: []}
+					@prompts = [
+						{prompt: '\nenter path to .pem file:\n', value: 'pem', resolve: true},
+						{prompt: '\nenter source dir:\n', value: 'src', resolve: true},
+						{prompt: '\nenter remote dir:\n', value: 'remote_dir'},
+						{prompt: '\nenter username:\n', value: 'username'},
+						{prompt: '\nenter hostname:\n', value: 'hostname'},
+					]
+
+					@prompter(0)
+				else
+					process.exit()
+		else if @options.remove_app
+			process.stdin.resume()
+			console.log "\n\nYou sure you want to remove the settings for the app #{@options.appname}?\n\ntype 'yes' or 'no'\n\n"
+			process.stdin.once 'data', (input) =>
+				if input is 'yes\n'
+					delete @options.config_file[@options.appname]
+					config_str = JSON.stringify @options.config_file, null, 4
+					fs.writeFile './config.json', config_str
+					process.stdin.pause()
+				else
+					process.exit()
+		else
+			@push()
+
+	prompter: (i) ->
+		console.log @prompts[i].prompt
+		process.stdin.once 'data', (input) =>
+			if @prompts[i].resolve
+				cleaned_input = path.resolve(input.replace('\n', ''))
+			else
+				cleaned_input = input.replace('\n', '')
+
+			@settings[@prompts[i].value] = cleaned_input
+			i++
+			if i >= @prompts.length
+				console.log 'enter a command that should be run on the server after file upload has compleated, or press enter to skip this.\n'
+				@post_upload_command_prompter()
+			else
+				@prompter(i)
+
+	post_upload_command_prompter: ->
+		process.stdin.once 'data', (input) =>
+			input = input.replace('\n', '')
+			if input
+				@settings.post_upload_command_sequence.push(input)
+				console.log 'enter another command to add run, or press enter to finish.'
+				@post_upload_command_prompter()
+			else
+				settings_str = JSON.stringify @settings, null, 4
+				console.log "Here are your settings for #{@options.appname}:\n"
+				console.log "#{settings_str}\n to go with them type 'yes'. To enter them again type 'no' \n\n"
+				process.stdin.on 'data', (input) =>
+					if input is 'no\n'
+						process.exit()
+					else 
+						process.stdin.pause()
+						@options.config_file[@appname] = @settings
+						config_str = JSON.stringify @options.config_file, null, 4
+						fs.writeFile './config.json', config_str
+
+	push: ->
+		app = @options.config_file[@options.appname]
+		command = """rsync -zvr -e "ssh -i #{app.pem}" #{app.src} #{app.username}@#{app.hostname}:#{app.remote_dir}"""
+		scp = exec command, {stdio: 'ignore'}, (err, stdout, stderr) =>
+			if err
+				console.log err
+				process.exit(1)
+			else
+				scp.kill()
+				@open_ssh()
+
+		scp.stdout.pipe(process.stdout)
+
+	open_ssh: ->
+		app = @options.config_file[@options.appname]
+		console.log 'file upload compleate\n'
+		console.log 'now attempting to run the following commands:\n'
+		for command in app.post_upload_command_sequence
+			console.log command + '\n'
+		ssh = exec "ssh -t -t -i #{app.pem} #{app.username}@#{app.hostname}", (err, stdout, stderr) ->
+			if err
+				console.log err
+				process.exit(1)
+			else
+				console.log 'done'
+
+		for command, index in app.post_upload_command_sequence
+			ssh.stdin.write "#{command}\n"
+
+options =
+	appname: process.argv[2]
+	config_file: config
+
+for arg, index in process.argv
+	#console.log arg
+	switch arg
+		when '-n', '--new' then options.new = true
+		when '-rm', '--remove' then options.remove_app = true
+		when '-h', '--help' then options.show_help = true
+		when '-cp', '--show-config-path' then options.show_config_path = true
+		when '-c', '--config' then options.show_config = true
+		when '-a', '--apps' then options.show_apps = true
+
+if options.show_config_path
+	console.log path.resolve('./conig.json')
+else if options.show_config
+	console.log JSON.stringify config, null, 4
+else if options.show_apps
+	for appname, conf of config
+		console.log appname
+else if options.show_help
+	console.log """
+	\n\n
+	Usage: synk [appname] [OPTIONS]
+
+	Options:
+		--new, -n                Create configuration for [appname]
+		--remove, -rm            Remove the setings for [appname]
+		--show-config-path, -cp  Show abs path to push config file for editing app settings manually
+		--apps, -a               Show a list of apps that have been configured
+		--help, -h               Show this message
+	\n\n
+	"""
+else
+	synk = new Synk(options)
