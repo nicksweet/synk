@@ -1,17 +1,17 @@
 {
-	"name": "pushr",
+	"name": "synk",
 	"version": "0.0.01",
-	"description": "Sync files between local and remote dirs, then run a series of commands on the server.",
+	"description": "schronize a remote directory with a local one, then run a series of commands on the server",
 	"author": {
 		"name": "Nick Sweet",
 		"email": "nick@igloo.io"
 	},
 	"repository": {
 	    "type": "git",
-	    "url": "https://github.com/nicksweet/push.git"
+	    "url": "http://github.com/nicksweet/synk.git"
   	},
-	"main": "push.coffee",
+	"main": "synk.coffee",
 	"bin": {
-		"pushr": "bin/pushr"
+		"synk": "bin/synk"
 	}
 }
