@@ -117,7 +117,8 @@ class Synk
 
 			for command, index in app.post_upload_command_sequence
 				ssh.stdin.write "#{command}\n"
-
+				if index is (app.post_upload_command_sequence.length - 1) and command not 'exit'
+					ssh.stdin.write 'exit\n'
 
 options =
 	config_file: config

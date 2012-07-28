@@ -1,5 +1,6 @@
 {
 	"name": "synk",
+	"preferGlobal": true,
 	"version": "0.0.02",
 	"description": "schronize a remote directory with a local one, then run a series of preset commands on the server",
 	"author": {
