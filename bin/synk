@@ -167,7 +167,12 @@
         _results = [];
         for (index = _j = 0, _len1 = _ref1.length; _j < _len1; index = ++_j) {
           command = _ref1[index];
-          _results.push(ssh.stdin.write("" + command + "\n"));
+          ssh.stdin.write("" + command + "\n");
+          if (index === (app.post_upload_command_sequence.length - 1) && command !== 'exit') {
+            _results.push(ssh.stdin.write('exit\n'));
+          } else {
+            _results.push(void 0);
+          }
         }
         return _results;
       }

@@ -117,7 +117,7 @@ class Synk
 
 			for command, index in app.post_upload_command_sequence
 				ssh.stdin.write "#{command}\n"
-				if index is (app.post_upload_command_sequence.length - 1) and command not 'exit'
+				if index is (app.post_upload_command_sequence.length - 1) and command != 'exit'
 					ssh.stdin.write 'exit\n'
 
 options =
@@ -137,9 +137,9 @@ else if options.show_help
 	Usage: synk [OPTIONS]
 
 	Options:
-		--remove, -rm            Remove the synk.json config file
-		--config, -c             Show synk.json config file
-		--help, -h               Show this message
+        --remove, -rm            Remove the synk.json config file
+        --config, -c             Show synk.json config file
+        --help, -h               Show this message
 	\n\n
 	"""
 else
